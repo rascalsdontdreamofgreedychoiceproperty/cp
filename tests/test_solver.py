@@ -1,5 +1,5 @@
 import pytest
-from dpll.solver import solve, get_vars
+from dpll.solver import solve, solve_with_unit_propagation, get_vars
 
 # ====================================================================
 # SATISFIABLE TEST CASES (Expected Result: True)
@@ -14,12 +14,14 @@ def test_simple_sat():
     ]
     vars_list = get_vars(clauses)
     assert solve(vars_list, clauses) == True
+    assert solve_with_unit_propagation(vars_list, clauses) == True
 
 def test_single_variable_sat():
     """Formula: (A)"""
     clauses = [['A']]
     vars_list = get_vars(clauses)
     assert solve(vars_list, clauses) == True
+    assert solve_with_unit_propagation(vars_list, clauses) == True
 
 # ====================================================================
 # UNSATISFIABLE TEST CASES (Expected Result: False)
@@ -33,6 +35,7 @@ def test_trivial_unsat():
     ]
     vars_list = get_vars(clauses)
     assert solve(vars_list, clauses) == False
+    assert solve_with_unit_propagation(vars_list, clauses) == False
 
 def test_pigeonhole_principle_unsat():
     """Formula: (A or B) and (-A) and (-B)"""
@@ -44,6 +47,7 @@ def test_pigeonhole_principle_unsat():
     ]
     vars_list = get_vars(clauses)
     assert solve(vars_list, clauses) == False
+    assert solve_with_unit_propagation(vars_list, clauses) == False
 
 def test_small_contradiction_unsat():
     """Formula: (A or B) and (-A or B) and (A or -B) and (-A or -B)"""
@@ -56,6 +60,7 @@ def test_small_contradiction_unsat():
     ]
     vars_list = get_vars(clauses)
     assert solve(vars_list, clauses) == False
+    assert solve_with_unit_propagation(vars_list, clauses) == False
 
 # ====================================================================
 # EDGE CASE TEST CASES
@@ -67,6 +72,7 @@ def test_empty_formula_sat():
     clauses = []
     vars_list = []
     assert solve(vars_list, clauses) == True
+    assert solve_with_unit_propagation(vars_list, clauses) == True
 
 def test_empty_clause_unsat():
     """Formula: (A) and ()"""
@@ -74,3 +80,77 @@ def test_empty_clause_unsat():
     clauses = [['A'], []]
     vars_list = get_vars(clauses)
     assert solve(vars_list, clauses) == False
+    assert solve_with_unit_propagation(vars_list, clauses) == False
+
+# ====================================================================
+# UNIT PROP TEST CASES
+# ====================================================================
+
+def test_unit_prop_chain_sat():
+    """
+    Tests a chain of unit propagations:
+    (A) -> (-A or B) becomes (B)
+    (B) -> (-B or C) becomes (C)
+    ...which is SAT.
+    """
+    clauses = [
+        ['A'],
+        ['-A', 'B'],
+        ['-B', 'C']
+    ]
+    vars_list = get_vars(clauses)
+    assert solve(vars_list, clauses) == True
+    assert solve_with_unit_propagation(vars_list, clauses) == True
+
+def test_unit_prop_chain_unsat():
+    """
+    Tests a chain of unit propagations that leads to a contradiction:
+    (A) -> (-A or B) becomes (B)
+    (B) -> (-B or C) becomes (C)
+    (C) and (-C) -> ()
+    ...which is UNSAT.
+    """
+    clauses = [
+        ['A'],
+        ['-A', 'B'],
+        ['-B', 'C'],
+        ['-C']
+    ]
+    vars_list = get_vars(clauses)
+    assert solve(vars_list, clauses) == False
+    assert solve_with_unit_propagation(vars_list, clauses) == False
+
+# ====================================================================
+# MISC TEST CASES
+# ====================================================================
+
+def test_pure_literal_sat():
+    """
+    Tests a formula with a 'pure literal' (one that only appears
+    in one form, e.g., 'C' is only positive).
+    These are always satisfiable.
+    Formula: (A or -B) and (B or C) and (-A or C)
+    """
+    clauses = [
+        ['A', '-B'],
+        ['B', 'C'],
+        ['-A', 'C']
+    ]
+    vars_list = get_vars(clauses)
+    assert solve(vars_list, clauses) == True
+    assert solve_with_unit_propagation(vars_list, clauses) == True
+
+def test_branch_heavy_sat():
+    """
+    Tests a problem with no unit clauses, forcing the
+    solver to branch immediately.
+    Formula: (A or B) and (-A or C) and (B or -C)
+    """
+    clauses = [
+        ['A', 'B'],
+        ['-A', 'C'],
+        ['B', '-C']
+    ]
+    vars_list = get_vars(clauses)
+    assert solve(vars_list, clauses) == True
+    assert solve_with_unit_propagation(vars_list, clauses) == True
