@@ -2,10 +2,16 @@ UNKNOWN = -1
 WATER = 0
 SHIP = 1
 
+GREY = '\033[90m'
+BLUE = '\033[94m'
+RED = '\033[91m'
+YELLOW = '\033[93m'
+RESET = '\033[0m'
+
 PRINT_MAP = {
-    UNKNOWN: '?',
-    WATER: '~',
-    SHIP: 'S'
+    UNKNOWN: f'{YELLOW}?{RESET}',
+    WATER:   f'{BLUE}~{RESET}',
+    SHIP:    f'{RED}x{RESET}'
 }
 
 def solve_battleship(board, fleet):
@@ -86,9 +92,11 @@ def print_board_battleship(board):
     ROWS = len(board)
     COLS = len(board[0])
     
-    print("  " + " ".join([str(i) for i in range(COLS)]))
+    col_headers = " ".join([str(i) for i in range(COLS)])
+    print(f"  {GREY}{col_headers}{RESET}")
+    
     for r in range(ROWS):
-        print(f"{r} ", end="")
+        print(f"{GREY}{r}{RESET} ", end="")
         for c in range(COLS):
             print(PRINT_MAP[board[r][c]] + " ", end="")
         print()
