@@ -1,6 +1,6 @@
-def solve(vars: list, clauses: list) -> bool:
+def solve(vars: list, clauses: list):
     if len(clauses) == 0:
-        return True
+        return {}
     if [] in clauses or not vars:
         return False
     chosen = vars[0]
@@ -14,6 +14,10 @@ def solve(vars: list, clauses: list) -> bool:
     
     out_true = solve(vars[1:], true_clauses)
 
+    if out_true is not False:
+        out_true[chosen] = True
+        return out_true
+
     false_clauses = []
     for clause in clauses:
         if neg_chosen not in clause:
@@ -22,8 +26,9 @@ def solve(vars: list, clauses: list) -> bool:
     
     out_false = solve(vars[1:], false_clauses)
     
-    if out_true or out_false:
-        return True
+    if out_false is not False:
+        out_false[chosen] = False
+        return out_false
     else:
         return False
     
@@ -33,7 +38,9 @@ def unit_propagate(clauses: list, unit_clause: list) -> list:
     new_clauses = [[literal for literal in clause if literal != neg_val] for clause in clauses if val not in clause]
     return new_clauses
 
-def solve_with_unit_propagation(vars: list, clauses: list) -> bool:
+def solve_with_unit_propagation(vars: list, clauses: list):
+    model = {}
+    
     while True:
         unit_clause = None
         for clause in clauses:
@@ -42,16 +49,30 @@ def solve_with_unit_propagation(vars: list, clauses: list) -> bool:
                 break
         
         if unit_clause:
+            val = unit_clause[0]
+            var = val.lstrip('-')
+            assignment = val[0] != '-'
+            
+            if var in model and model[var] != assignment:
+                return False
+            model[var] = assignment
+            
             clauses = unit_propagate(clauses, unit_clause)
         else:
             break
 
     if len(clauses) == 0:
-        return True
-    if [] in clauses or not vars:
+        return model
+    if [] in clauses:
         return False
     
-    chosen = vars[0]
+    remaining_vars = [v for v in vars if v not in model]
+    
+    if not remaining_vars:
+        return False
+    
+    chosen = remaining_vars[0]
+    rest_vars = remaining_vars[1:]
     neg_chosen = '-'+chosen
 
     true_clauses = []
@@ -60,7 +81,12 @@ def solve_with_unit_propagation(vars: list, clauses: list) -> bool:
             updated_clause = [var for var in clause if var != neg_chosen]
             true_clauses.append(updated_clause)
     
-    out_true = solve_with_unit_propagation(vars[1:], true_clauses)
+    out_true = solve_with_unit_propagation(rest_vars, true_clauses)
+
+    if out_true is not False:
+        out_true[chosen] = True
+        out_true.update(model)
+        return out_true
 
     false_clauses = []
     for clause in clauses:
@@ -68,10 +94,12 @@ def solve_with_unit_propagation(vars: list, clauses: list) -> bool:
             updated_clause = [var for var in clause if var != chosen]
             false_clauses.append(updated_clause)
     
-    out_false = solve_with_unit_propagation(vars[1:], false_clauses)
+    out_false = solve_with_unit_propagation(rest_vars, false_clauses)
     
-    if out_true or out_false:
-        return True
+    if out_false is not False:
+        out_false[chosen] = False
+        out_false.update(model)
+        return out_false
     else:
         return False
     
@@ -92,7 +120,7 @@ if __name__ == "__main__":
         clause = input().split()
         clauses.append(clause)
 
-    vars = get_vars(clauses)
+    vars_list = get_vars(clauses)
 
-    print(f"Solve answer: {solve(vars, clauses)}")
-    print(f"Solve with unit propagation answer: {solve(vars, clauses)}")
+    print(f"Solve answer: {solve(vars_list, clauses)}")
+    print(f"Solve with unit propagation answer: {solve_with_unit_propagation(vars_list, clauses)}")
