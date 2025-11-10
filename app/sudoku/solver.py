@@ -6,7 +6,7 @@ root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from dpll.solver import solve_with_heuristics, get_vars
+from dpll.solver import solve, get_vars
 
 def variable(r, c, n):
     return f"{r}-{c}-{n}"
@@ -60,7 +60,7 @@ def solve_sudoku(board, heuristics_list):
                 clauses.append([variable(r, c, board[r][c])])
 
     vars_list = get_vars(clauses)
-    model = solve_with_heuristics(vars_list, clauses, heuristics_list)
+    model = solve(vars_list, clauses, heuristics_list)
     
     if model is False:
         return False
