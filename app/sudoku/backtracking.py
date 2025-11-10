@@ -79,11 +79,12 @@ example_board = [
 
 original_example_board = copy.deepcopy(example_board)
 
-print("unsolved:")
-print_board(original_example_board)
+if __name__ == "__main__":
+    print("unsolved:")
+    print_board(original_example_board)
 
-if solve_sudoku(example_board):
-    print("\nsolved :)")
-    print_board(example_board, original_example_board)
-else:
-    print("\n\033[91munsolvable :(\033[0m")
+    if solve_sudoku(example_board):
+        print("\nsolved :)")
+        print_board(example_board, original_example_board)
+    else:
+        print("\n\033[91munsolvable :(\033[0m")

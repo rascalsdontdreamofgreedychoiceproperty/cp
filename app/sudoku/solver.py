@@ -7,6 +7,7 @@ if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
 from dpll.solver import solve, get_vars
+from app.sudoku.backtracking import solve_sudoku as backtracking_solve
 
 def variable(r, c, n):
     return f"{r}-{c}-{n}"
@@ -52,6 +53,9 @@ def generate_sudoku_clauses():
 BASE_SUDOKU_CLAUSES = generate_sudoku_clauses()
 
 def solve_sudoku(board, heuristics_list):
+    if "backtracking" in heuristics_list:
+        return backtracking_solve(board)
+    
     clauses = copy.deepcopy(BASE_SUDOKU_CLAUSES)
     
     for r in range(9):
