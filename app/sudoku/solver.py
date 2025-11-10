@@ -131,4 +131,4 @@ if __name__ == "__main__":
         print("\nsolved :)")
         print_board(example_board, original_example_board)
     else:
-        print("\nunsolvable :(")
+        print("\n\033[91munsolvable :(\033[0m")

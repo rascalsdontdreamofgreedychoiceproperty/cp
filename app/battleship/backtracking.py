@@ -134,4 +134,4 @@ if __name__ == "__main__":
         
         print_board_battleship(example_board)
     else:
-        print("\nno solution :(")
+        print("\n\033[91munsolvable :(\033[0m")
