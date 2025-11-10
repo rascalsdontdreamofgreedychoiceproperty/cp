@@ -102,6 +102,11 @@ def solve_with_unit_propagation(vars: list, clauses: list):
         return out_false
     else:
         return False
+
+def solve_with_heuristics(vars: list, clauses: list, heuristics: list):
+    if "unit" in heuristics:
+        return solve_with_unit_propagation(vars, clauses)
+    return solve(vars, clauses)
     
 def get_vars(clauses):
     vars_set = set()
