@@ -1,6 +1,7 @@
 import copy
 import sys
 import os
+import time
 
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 if root_dir not in sys.path:
@@ -127,12 +128,19 @@ if __name__ == "__main__":
     
     if not heuristics:
         heuristics = ["unit"]
+
+    print("heuristics:", heuristics)
         
-    print("unsolved:")
+    print("\nunsolved:")
     print_board(original_example_board)
 
+    start_time = time.time()
     if solve_sudoku(example_board, heuristics):
+        elapsed_time = time.time() - start_time
         print("\nsolved :)")
         print_board(example_board, original_example_board)
+        print(f"\ntime: {elapsed_time:.6f}s")
     else:
+        elapsed_time = time.time() - start_time
         print("\n\033[91munsolvable :(\033[0m")
+        print(f"\ntime: {elapsed_time:.6f}s")
