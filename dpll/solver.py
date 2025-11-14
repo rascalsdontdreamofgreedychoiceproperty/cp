@@ -1,6 +1,6 @@
 def solve(vars: list, clauses: list, heuristics: list):
     model = {}
-    
+
     if "unit" in heuristics:
         while True:
             unit_clause = None
@@ -21,6 +21,30 @@ def solve(vars: list, clauses: list, heuristics: list):
                 clauses = unit_propagate(clauses, unit_clause)
             else:
                 break
+    
+    if "pure" in heuristics:
+        pure_check = {}
+        pure_vars = set(v for v in vars if v not in model)
+
+        for clause in clauses:
+            for literal in clause:
+                var = literal.lstrip("-")
+
+                if var not in pure_vars:
+                    continue
+
+                polarity = literal[0] != '-'
+
+                if var not in pure_check:
+                    pure_check[var] = polarity
+
+                elif pure_check[var] != polarity:
+                    pure_vars.remove(var)
+
+        vars_to_assign = [v for v in pure_vars if v in pure_check]
+
+        if vars_to_assign:
+            clauses = pure_assign_literal(clauses, pure_check, vars_to_assign, model)
 
     if len(clauses) == 0:
         return model
@@ -70,6 +94,24 @@ def unit_propagate(clauses: list, unit_clause: list) -> list:
     new_clauses = [[literal for literal in clause if literal != neg_val] for clause in clauses if val not in clause]
     return new_clauses
 
+def pure_assign_literal(clauses: list, pure_check: dict, pure_vars: list, model: dict):
+    new_clauses = list(clauses)
+
+    for var in pure_vars:
+        polarity = pure_check[var]
+        model[var] = polarity
+
+        val_to_remove = var if polarity else '-' + var
+
+        temp_clauses = []
+        for clause in new_clauses:
+            if val_to_remove not in clause:
+                temp_clauses.append(clause)
+        
+        new_clauses = temp_clauses # Update the list for the next iteration
+        
+    return new_clauses
+
 
 def get_vars(clauses):
     vars_set = set()
@@ -90,5 +132,7 @@ if __name__ == "__main__":
 
     vars_list = get_vars(clauses)
 
-    print(f"Solve answer: {solve(vars_list, clauses, [])}")
-    print(f"Solve with unit propagation answer: {solve(vars_list, clauses, ['unit'])}")
+    print(f"Solve (no heuristics) answer: {solve(vars_list, clauses, [])}")
+    print(f"Solve (unit prop) answer: {solve(vars_list, clauses, ['unit'])}")
+    print(f"Solve (unit prop + pure) answer: {solve(vars_list, clauses, ['unit', 'pure'])}")
+    
