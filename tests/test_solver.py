@@ -1,5 +1,6 @@
 import pytest
-from dpll.solver import solve, solve_with_unit_propagation, get_vars
+from dpll.solver import solve, get_vars
+from dpll.verifier import verify
 
 # ====================================================================
 # SATISFIABLE TEST CASES (Expected Result: True)
@@ -13,15 +14,17 @@ def test_simple_sat():
         ['-B', 'C']
     ]
     vars_list = get_vars(clauses)
-    assert solve(vars_list, clauses) == True
-    assert solve_with_unit_propagation(vars_list, clauses) == True
+    assert verify(clauses, solve(vars_list, clauses, []))  == True
+    assert verify(clauses, solve(vars_list, clauses, ["unit"]))  == True
+    assert verify(clauses, solve(vars_list, clauses, ["unit", "pure"]))  == True
 
 def test_single_variable_sat():
     """Formula: (A)"""
     clauses = [['A']]
     vars_list = get_vars(clauses)
-    assert solve(vars_list, clauses) == True
-    assert solve_with_unit_propagation(vars_list, clauses) == True
+    assert verify(clauses, solve(vars_list, clauses, []))  == True
+    assert verify(clauses, solve(vars_list, clauses, ["unit"]))  == True
+    assert verify(clauses, solve(vars_list, clauses, ["unit", "pure"]))  == True
 
 # ====================================================================
 # UNSATISFIABLE TEST CASES (Expected Result: False)
@@ -34,8 +37,9 @@ def test_trivial_unsat():
         ['-A']
     ]
     vars_list = get_vars(clauses)
-    assert solve(vars_list, clauses) == False
-    assert solve_with_unit_propagation(vars_list, clauses) == False
+    assert verify(clauses, solve(vars_list, clauses, []))  == False
+    assert verify(clauses, solve(vars_list, clauses, ["unit"]))  == False
+    assert verify(clauses, solve(vars_list, clauses, ["unit", "pure"]))  == False
 
 def test_pigeonhole_principle_unsat():
     """Formula: (A or B) and (-A) and (-B)"""
@@ -46,8 +50,9 @@ def test_pigeonhole_principle_unsat():
         ['-B']
     ]
     vars_list = get_vars(clauses)
-    assert solve(vars_list, clauses) == False
-    assert solve_with_unit_propagation(vars_list, clauses) == False
+    assert verify(clauses, solve(vars_list, clauses, []))  == False
+    assert verify(clauses, solve(vars_list, clauses, ["unit"]))  == False
+    assert verify(clauses, solve(vars_list, clauses, ["unit", "pure"]))  == False
 
 def test_small_contradiction_unsat():
     """Formula: (A or B) and (-A or B) and (A or -B) and (-A or -B)"""
@@ -59,8 +64,9 @@ def test_small_contradiction_unsat():
         ['-A', '-B']
     ]
     vars_list = get_vars(clauses)
-    assert solve(vars_list, clauses) == False
-    assert solve_with_unit_propagation(vars_list, clauses) == False
+    assert verify(clauses, solve(vars_list, clauses, []))  == False
+    assert verify(clauses, solve(vars_list, clauses, ["unit"]))  == False
+    assert verify(clauses, solve(vars_list, clauses, ["unit", "pure"]))  == False
 
 # ====================================================================
 # EDGE CASE TEST CASES
@@ -71,16 +77,18 @@ def test_empty_formula_sat():
     # This must trigger your first base case (if not clauses: return True)
     clauses = []
     vars_list = []
-    assert solve(vars_list, clauses) == True
-    assert solve_with_unit_propagation(vars_list, clauses) == True
+    assert verify(clauses, solve(vars_list, clauses, []))  == True
+    assert verify(clauses, solve(vars_list, clauses, ["unit"]))  == True
+    assert verify(clauses, solve(vars_list, clauses, ["unit", "pure"]))  == True
 
 def test_empty_clause_unsat():
     """Formula: (A) and ()"""
     # An empty clause means the formula is immediately unsatisfiable
     clauses = [['A'], []]
     vars_list = get_vars(clauses)
-    assert solve(vars_list, clauses) == False
-    assert solve_with_unit_propagation(vars_list, clauses) == False
+    assert verify(clauses, solve(vars_list, clauses, []))  == False
+    assert verify(clauses, solve(vars_list, clauses, ["unit"]))  == False
+    assert verify(clauses, solve(vars_list, clauses, ["unit", "pure"]))  == False
 
 # ====================================================================
 # UNIT PROP TEST CASES
@@ -99,8 +107,9 @@ def test_unit_prop_chain_sat():
         ['-B', 'C']
     ]
     vars_list = get_vars(clauses)
-    assert solve(vars_list, clauses) == True
-    assert solve_with_unit_propagation(vars_list, clauses) == True
+    assert verify(clauses, solve(vars_list, clauses, []))  == True
+    assert verify(clauses, solve(vars_list, clauses, ["unit"]))  == True
+    assert verify(clauses, solve(vars_list, clauses, ["unit", "pure"]))  == True
 
 def test_unit_prop_chain_unsat():
     """
@@ -117,8 +126,9 @@ def test_unit_prop_chain_unsat():
         ['-C']
     ]
     vars_list = get_vars(clauses)
-    assert solve(vars_list, clauses) == False
-    assert solve_with_unit_propagation(vars_list, clauses) == False
+    assert verify(clauses, solve(vars_list, clauses, []))  == False
+    assert verify(clauses, solve(vars_list, clauses, ["unit"]))  == False
+    assert verify(clauses, solve(vars_list, clauses, ["unit", "pure"]))  == False
 
 # ====================================================================
 # MISC TEST CASES
@@ -137,8 +147,9 @@ def test_pure_literal_sat():
         ['-A', 'C']
     ]
     vars_list = get_vars(clauses)
-    assert solve(vars_list, clauses) == True
-    assert solve_with_unit_propagation(vars_list, clauses) == True
+    assert verify(clauses, solve(vars_list, clauses, []))  == True
+    assert verify(clauses, solve(vars_list, clauses, ["unit"]))  == True
+    assert verify(clauses, solve(vars_list, clauses, ["unit", "pure"]))  == True
 
 def test_branch_heavy_sat():
     """
@@ -152,5 +163,5 @@ def test_branch_heavy_sat():
         ['B', '-C']
     ]
     vars_list = get_vars(clauses)
-    assert solve(vars_list, clauses) == True
-    assert solve_with_unit_propagation(vars_list, clauses) == True
+    assert verify(clauses, solve(vars_list, clauses, []))  == True
+    assert verify(clauses, solve(vars_list, clauses, ["unit"]))  == True
