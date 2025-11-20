@@ -1,3 +1,5 @@
+import time
+
 def solve(vars: list, clauses: list, heuristics: list):
     model = {}
 
@@ -24,27 +26,25 @@ def solve(vars: list, clauses: list, heuristics: list):
     
     if "pure" in heuristics:
         pure_check = {}
-        pure_vars = set(v for v in vars if v not in model)
 
         for clause in clauses:
             for literal in clause:
                 var = literal.lstrip("-")
 
-                if var not in pure_vars:
+                if var in model:
                     continue
 
                 polarity = literal[0] != '-'
 
                 if var not in pure_check:
                     pure_check[var] = polarity
-
                 elif pure_check[var] != polarity:
-                    pure_vars.remove(var)
+                    pure_check[var] = None
 
-        vars_to_assign = [v for v in pure_vars if v in pure_check]
+        pure_check = {var: pol for var, pol in pure_check.items() if pol is not None}
 
-        if vars_to_assign:
-            clauses = pure_assign_literal(clauses, pure_check, vars_to_assign, model)
+        if pure_check:
+            clauses = pure_assign_literal(clauses, pure_check, model)
 
     if len(clauses) == 0:
         return model
@@ -94,22 +94,15 @@ def unit_propagate(clauses: list, unit_clause: list) -> list:
     new_clauses = [[literal for literal in clause if literal != neg_val] for clause in clauses if val not in clause]
     return new_clauses
 
-def pure_assign_literal(clauses: list, pure_check: dict, pure_vars: list, model: dict):
-    new_clauses = list(clauses)
-
-    for var in pure_vars:
-        polarity = pure_check[var]
+def pure_assign_literal(clauses: list, pure_check: dict, model: dict):
+    literals_to_satisfy = set()
+    for var, polarity in pure_check.items():
         model[var] = polarity
-
-        val_to_remove = var if polarity else '-' + var
-
-        temp_clauses = []
-        for clause in new_clauses:
-            if val_to_remove not in clause:
-                temp_clauses.append(clause)
-        
-        new_clauses = temp_clauses # Update the list for the next iteration
-        
+        literals_to_satisfy.add(var if polarity else '-' + var)
+    
+    new_clauses = [clause for clause in clauses 
+                   if not any(lit in literals_to_satisfy for lit in clause)]
+    
     return new_clauses
 
 
@@ -132,7 +125,21 @@ if __name__ == "__main__":
 
     vars_list = get_vars(clauses)
 
-    print(f"Solve (no heuristics) answer: {solve(vars_list, clauses, [])}")
-    print(f"Solve (unit prop) answer: {solve(vars_list, clauses, ['unit'])}")
-    print(f"Solve (unit prop + pure) answer: {solve(vars_list, clauses, ['unit', 'pure'])}")
+    start_time = time.time()
+    result_no_heuristics = solve(vars_list, clauses, [])
+    elapsed_no_heuristics = time.time() - start_time
+    print(f"Solve (no heuristics) answer: {result_no_heuristics}")
+    print(f"time: {elapsed_no_heuristics:.6f}s")
+
+    start_time = time.time()
+    result_unit = solve(vars_list, clauses, ['unit'])
+    elapsed_unit = time.time() - start_time
+    print(f"\nSolve (unit prop) answer: {result_unit}")
+    print(f"time: {elapsed_unit:.6f}s")
+
+    start_time = time.time()
+    result_unit_pure = solve(vars_list, clauses, ['unit', 'pure'])
+    elapsed_unit_pure = time.time() - start_time
+    print(f"\nSolve (unit prop + pure) answer: {result_unit_pure}")
+    print(f"time: {elapsed_unit_pure:.6f}s")
     
