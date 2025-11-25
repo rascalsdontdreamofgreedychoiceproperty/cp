@@ -34,6 +34,10 @@ def parse_dimacs_cnf(filename):
             if line.startswith('c'):
                 continue
             
+            # Skip DIMACS terminator
+            if line == '%' or line.startswith('%'):
+                break
+            
             # Parse the problem line (e.g., "p cnf 5 3")
             if line.startswith('p'):
                 if found_problem_line:

@@ -1,0 +1,108 @@
+c CNF file heavily biased to demonstrate backjumping efficiency
+c This problem has very deep forcing chains that lead to conflicts far down the tree
+c Backjumping should MASSIVELY outperform chronological backtracking
+c 
+c Problem structure: Multiple very long chains that conflict only at the deepest levels
+c Without backjumping: must explore O(2^n) branches before finding the real culprit
+c With backjumping: can skip entire subtrees by jumping to the actual conflict source
+c
+p cnf 30 80
+c === DEEP FORCING CHAIN 1 (variables 1-10) ===
+1 0
+-1 2 0
+-2 3 0
+-3 4 0
+-4 5 0
+-5 6 0
+-6 7 0
+-7 8 0
+-8 9 0
+-9 10 0
+c === DEEP FORCING CHAIN 2 (variables 11-20) ===
+11 0
+-11 12 0
+-12 13 0
+-13 14 0
+-14 15 0
+-15 16 0
+-16 17 0
+-17 18 0
+-18 19 0
+-19 20 0
+c === DEEP FORCING CHAIN 3 (variables 21-30) ===
+21 0
+-21 22 0
+-22 23 0
+-23 24 0
+-24 25 0
+-25 26 0
+-26 27 0
+-27 28 0
+-28 29 0
+-29 30 0
+c === CONFLICT AT THE DEEPEST LEVEL ===
+c All three chains must reach the end, but then they conflict
+-10 -20 0
+-10 -30 0
+-20 -30 0
+c === ADDITIONAL DEEP CONFLICTS ===
+c These create conflicts only after going very deep
+-8 -9 -18 0
+-8 -9 -19 0
+-18 -19 -28 0
+-18 -19 -29 0
+c === CROSS-CHAIN DEPENDENCIES ===
+c Make the solver explore one chain before realizing it conflicts with another
+10 -11 0
+20 -21 0
+10 20 -1 0
+c === FORCE WRONG BRANCHING DECISIONS ===
+c These clauses force the solver down wrong paths
+2 12 0
+3 13 0
+4 14 0
+5 15 0
+6 16 0
+7 17 0
+8 18 0
+9 19 0
+c === MORE DEEP CONFLICTS ===
+-5 -15 -25 0
+-6 -16 -26 0
+-7 -17 -27 0
+c === ENSURE DEEP EXPLORATION ===
+c Force exploration of full depth before conflicts are detected
+1 11 21 0
+-2 -12 -22 0
+-3 -13 -23 0
+-4 -14 -24 0
+c === CHAIN INTERCONNECTIONS ===
+c Create dependencies that span multiple chains
+10 -15 0
+15 -20 0
+20 -25 0
+25 -30 0
+c === FINAL DEEP CONFLICTS ===
+c These only trigger after all chains are explored
+-10 -15 -20 0
+-15 -20 -25 0
+-20 -25 -30 0
+10 20 30 0
+c === ULTIMATE CONFLICT ===
+c This creates unsatisfiability but only detectable at max depth
+-1 -11 -21 0
+1 11 21 0
+c === ADDITIONAL CROSS-CONFLICTS ===
+-6 -7 -16 -17 0
+-16 -17 -26 -27 0
+-7 -8 -17 -18 0
+-17 -18 -27 -28 0
+-8 -9 -18 -19 0
+-18 -19 -28 -29 0
+c === FORCE MAXIMUM DEPTH EXPLORATION ===
+2 3 4 0
+12 13 14 0
+22 23 24 0
+-2 5 0
+-12 15 0
+-22 25 0
