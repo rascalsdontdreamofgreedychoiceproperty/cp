@@ -9,6 +9,7 @@ if root_dir not in sys.path:
 
 from dpll.solver import solve, get_vars
 from app.sudoku.solver import solve_sudoku, example_board
+from app.sudoku.backtracking import solve_sudoku as backtracking_solve_sudoku
 from parser.cnf_parser import parse_dimacs_cnf
 
 
@@ -35,14 +36,19 @@ DPLL_HEURISTICS = [
 # SUDOKU BENCHMARKS
 # ============================================================================
 
-@pytest.mark.benchmark(group="sudoku")
+@pytest.mark.benchmark(group="sudoku-dpll")
 @pytest.mark.parametrize("heuristics", SUDOKU_HEURISTICS, ids=lambda h: "_".join(h) if h else "none")
-def test_sudoku(benchmark, heuristics):
-    """Benchmark Sudoku with various heuristic combinations"""
+def test_sudoku_dpll(benchmark, heuristics):
+    """Benchmark Sudoku with DPLL solver using various heuristic combinations"""
     board = copy.deepcopy(example_board)
     benchmark(solve_sudoku, board, heuristics)
 
 
+@pytest.mark.benchmark(group="sudoku-backtracking")
+def test_sudoku_backtracking(benchmark):
+    """Benchmark Sudoku with backtracking solver"""
+    board = copy.deepcopy(example_board)
+    benchmark(backtracking_solve_sudoku, board)
 
 
 
@@ -50,33 +56,25 @@ def test_sudoku(benchmark, heuristics):
 # DPLL BENCHMARKS
 # ============================================================================
 
-# Default CNF files for testing
-DEFAULT_CNF_FILES = [
-    "tests/uf20-91/uf20-01.cnf",
-    "tests/purepp.cnf"
-]
-
-
-def pytest_generate_tests(metafunc):
-    """Generate test parameters based on command line options or defaults"""
-    if "cnf_problem" in metafunc.fixturenames:
-        cnf_files_option = metafunc.config.getoption("--cnf-files")
-        if cnf_files_option:
-            cnf_files = [f.strip() for f in cnf_files_option.split(",")]
-        else:
-            cnf_files = DEFAULT_CNF_FILES
-        
-        # Create a group name from the filename for better organization
-        def get_group_name(filepath):
-            basename = os.path.basename(filepath)
-            return f"dpll-{basename}"
-        
-        metafunc.parametrize(
-            "cnf_problem", 
-            cnf_files, 
-            indirect=True, 
-            ids=lambda f: os.path.basename(f)
-        )
+def get_cnf_files(config):
+    """Get list of CNF files based on command line options"""
+    # Check for explicit file list
+    cnf_files_option = config.getoption("--cnf-files")
+    if cnf_files_option:
+        return [f.strip() for f in cnf_files_option.split(",")]
+    
+    # Otherwise use benchmark mode
+    mode = config.getoption("--intensity")
+    uf20_dir = os.path.join(root_dir, "tests", "uf20-91")
+    
+    # Get all files in uf20-91 directory
+    all_files = sorted([os.path.join(uf20_dir, f) for f in os.listdir(uf20_dir) if f.endswith(".cnf")])
+    
+    if mode == "quick":
+        # Use every 20th file to get ~50 files
+        return all_files[::20]
+    else:  # full
+        return all_files
 
 
 def load_cnf(filepath):
@@ -89,58 +87,28 @@ def load_cnf(filepath):
 
 
 @pytest.fixture
-def cnf_problem(request):
-    """Fixture that provides different CNF problems"""
-    filepath = request.param
-    return load_cnf(filepath), os.path.basename(filepath)
+def cnf_files(request):
+    """Fixture that provides list of CNF files based on benchmark mode"""
+    return get_cnf_files(request.config)
 
 
-@pytest.mark.benchmark
-def test_dpll_none(benchmark, cnf_problem):
-    """Benchmark DPLL with no heuristics"""
-    (vars_list, clauses_original), filename = cnf_problem
-    benchmark.group = f"dpll-{filename}"
+@pytest.mark.benchmark(group="dpll")
+@pytest.mark.parametrize("heuristics", DPLL_HEURISTICS, ids=lambda h: "_".join(h) if h else "none")
+def test_dpll(benchmark, cnf_files, heuristics, request):
+    """Benchmark DPLL with various heuristic combinations across multiple files"""
+    mode = request.config.getoption("--intensity")
+    rounds = 20 if mode == "quick" else 1
     
-    def setup():
-        return (vars_list, copy.deepcopy(clauses_original), []), {}
+    # Load all problems once
+    problems = [load_cnf(filepath) for filepath in cnf_files]
     
-    benchmark.pedantic(solve, setup=setup, rounds=1000, iterations=1)
-
-
-@pytest.mark.benchmark
-def test_dpll_unit(benchmark, cnf_problem):
-    """Benchmark DPLL with unit propagation only"""
-    (vars_list, clauses_original), filename = cnf_problem
-    benchmark.group = f"dpll-{filename}"
+    def run_all_problems():
+        """Run solver on all problems"""
+        for vars_list, clauses_original in problems:
+            clauses = copy.deepcopy(clauses_original)
+            solve(vars_list, clauses, heuristics)
     
-    def setup():
-        return (vars_list, copy.deepcopy(clauses_original), ["unit"]), {}
-    
-    benchmark.pedantic(solve, setup=setup, rounds=1000, iterations=1)
-
-
-@pytest.mark.benchmark
-def test_dpll_pure(benchmark, cnf_problem):
-    """Benchmark DPLL with pure literal only"""
-    (vars_list, clauses_original), filename = cnf_problem
-    benchmark.group = f"dpll-{filename}"
-    
-    def setup():
-        return (vars_list, copy.deepcopy(clauses_original), ["pure"]), {}
-    
-    benchmark.pedantic(solve, setup=setup, rounds=1000, iterations=1)
-
-
-@pytest.mark.benchmark
-def test_dpll_unit_pure(benchmark, cnf_problem):
-    """Benchmark DPLL with unit propagation + pure literal"""
-    (vars_list, clauses_original), filename = cnf_problem
-    benchmark.group = f"dpll-{filename}"
-    
-    def setup():
-        return (vars_list, copy.deepcopy(clauses_original), ["unit", "pure"]), {}
-    
-    benchmark.pedantic(solve, setup=setup, rounds=1000, iterations=1)
+    benchmark.pedantic(run_all_problems, rounds=rounds, iterations=1)
 
 
 
