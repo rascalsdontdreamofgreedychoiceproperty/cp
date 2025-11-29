@@ -10,6 +10,8 @@ if root_dir not in sys.path:
 from dpll.solver import solve, get_vars
 from app.sudoku.solver import solve_sudoku, example_board
 from app.sudoku.backtracking import solve_sudoku as backtracking_solve_sudoku
+from app.vertexcover.solver import solve_vertex_cover, example_graph_2
+from app.vertexcover.backtracking import find_minimum_vertex_cover as backtracking_solve_vertex_cover
 from parser.cnf_parser import parse_dimacs_cnf
 
 
@@ -23,12 +25,20 @@ SUDOKU_HEURISTICS = [
     ["unit", "pure"],
 ]
 
+# Vertex Cover heuristic combinations to benchmark
+VERTEXCOVER_HEURISTICS = [
+    ["unit"],
+    ["unit", "pure"],
+]
+
 # DPLL heuristic combinations to benchmark
 DPLL_HEURISTICS = [
     [],
     ["unit"],
     ["pure"],
+    ["pure"],
     ["unit", "pure"],
+    ["unit", "pureplus"],
 ]
 
 
@@ -36,6 +46,7 @@ DPLL_HEURISTICS = [
 # SUDOKU BENCHMARKS
 # ============================================================================
 
+@pytest.mark.sudoku
 @pytest.mark.benchmark(group="sudoku-dpll")
 @pytest.mark.parametrize("heuristics", SUDOKU_HEURISTICS, ids=lambda h: "_".join(h) if h else "none")
 def test_sudoku_dpll(benchmark, heuristics):
@@ -44,11 +55,34 @@ def test_sudoku_dpll(benchmark, heuristics):
     benchmark(solve_sudoku, board, heuristics)
 
 
+@pytest.mark.sudoku
 @pytest.mark.benchmark(group="sudoku-backtracking")
 def test_sudoku_backtracking(benchmark):
     """Benchmark Sudoku with backtracking solver"""
     board = copy.deepcopy(example_board)
     benchmark(backtracking_solve_sudoku, board)
+
+
+
+# ============================================================================
+# VERTEX COVER BENCHMARKS
+# ============================================================================
+
+@pytest.mark.vertexcover
+@pytest.mark.benchmark(group="vertexcover-dpll")
+@pytest.mark.parametrize("heuristics", VERTEXCOVER_HEURISTICS, ids=lambda h: "_".join(h) if h else "none")
+def test_vertexcover_dpll(benchmark, heuristics):
+    """Benchmark Vertex Cover with DPLL solver using various heuristic combinations"""
+    graph = copy.deepcopy(example_graph_2)
+    benchmark(solve_vertex_cover, graph, None, heuristics)
+
+
+@pytest.mark.vertexcover
+@pytest.mark.benchmark(group="vertexcover-backtracking")
+def test_vertexcover_backtracking(benchmark):
+    """Benchmark Vertex Cover with backtracking solver"""
+    graph = copy.deepcopy(example_graph_2)
+    benchmark(backtracking_solve_vertex_cover, graph)
 
 
 
@@ -92,6 +126,7 @@ def cnf_files(request):
     return get_cnf_files(request.config)
 
 
+@pytest.mark.sat
 @pytest.mark.benchmark(group="dpll")
 @pytest.mark.parametrize("heuristics", DPLL_HEURISTICS, ids=lambda h: "_".join(h) if h else "none")
 def test_dpll(benchmark, cnf_files, heuristics, request):
@@ -109,7 +144,3 @@ def test_dpll(benchmark, cnf_files, heuristics, request):
             solve(vars_list, clauses, heuristics)
     
     benchmark.pedantic(run_all_problems, rounds=rounds, iterations=1)
-
-
-
-

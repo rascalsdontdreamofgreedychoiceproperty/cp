@@ -1,30 +1,24 @@
 import time
 
-def solve(vars: list, clauses: list, heuristics: list):
-    model = {}
+def solve(vars: list, clauses: list, heuristics: list, model=None, depth=0, literal_counts=None):
+    if model is None:
+        model = {}
+    
+    if literal_counts is None and "pureplus" in heuristics:
+        literal_counts = build_literal_counts(clauses)
 
     if "unit" in heuristics:
-        while True:
-            unit_clause = None
-            for clause in clauses:
-                if len(clause) == 1:
-                    unit_clause = clause
-                    break
-            
-            if unit_clause:
-                val = unit_clause[0]
-                var = val.lstrip('-')
-                assignment = val[0] != '-'
-                
-                if var in model and model[var] != assignment:
-                    return False
-                model[var] = assignment
-                
-                clauses = unit_propagate(clauses, unit_clause)
-            else:
-                break
+        clauses, model, conflict = unit_propagate_full(clauses, model)
+        if conflict:
+            return False
     
-    if "pure" in heuristics:
+    if "pureplus" in heuristics:
+        pure_vars = find_pure_literals_fast(literal_counts, model)
+        if pure_vars:
+            clauses = pure_assign_literal(clauses, pure_vars, model)
+            literal_counts = update_literal_counts(literal_counts, pure_vars)
+    
+    if "pure" in heuristics and depth == 0:
         pure_check = {}
 
         for clause in clauses:
@@ -66,11 +60,16 @@ def solve(vars: list, clauses: list, heuristics: list):
             updated_clause = [var for var in clause if var != neg_chosen]
             true_clauses.append(updated_clause)
     
-    out_true = solve(rest_vars, true_clauses, heuristics)
+    new_model = model.copy()
+    new_model[chosen] = True
+    
+    new_literal_counts = None
+    if literal_counts:
+        new_literal_counts = update_literal_counts_for_assignment(literal_counts, chosen, True, clauses)
+    
+    out_true = solve(rest_vars, true_clauses, heuristics, new_model, depth+1, new_literal_counts)
 
     if out_true is not False:
-        out_true[chosen] = True
-        out_true.update(model)
         return out_true
 
     false_clauses = []
@@ -79,20 +78,56 @@ def solve(vars: list, clauses: list, heuristics: list):
             updated_clause = [var for var in clause if var != chosen]
             false_clauses.append(updated_clause)
     
-    out_false = solve(rest_vars, false_clauses, heuristics)
+    new_model = model.copy()
+    new_model[chosen] = False
+    
+    new_literal_counts = None
+    if literal_counts:
+        new_literal_counts = update_literal_counts_for_assignment(literal_counts, chosen, False, clauses)
+    
+    out_false = solve(rest_vars, false_clauses, heuristics, new_model, depth+1, new_literal_counts)
     
     if out_false is not False:
-        out_false[chosen] = False
-        out_false.update(model)
         return out_false
     else:
         return False
+
+def unit_propagate_full(clauses: list, model: dict):
+    model = model.copy()
     
-def unit_propagate(clauses: list, unit_clause: list) -> list:
-    val = unit_clause[0]
-    neg_val = val[1:] if val[0]=='-' else '-'+val 
-    new_clauses = [[literal for literal in clause if literal != neg_val] for clause in clauses if val not in clause]
-    return new_clauses
+    while True:
+        unit_clause = None
+        for clause in clauses:
+            if len(clause) == 1:
+                unit_clause = clause
+                break
+        
+        if not unit_clause:
+            break
+        
+        val = unit_clause[0]
+        var = val.lstrip('-')
+        assignment = val[0] != '-'
+        
+        if var in model:
+            if model[var] != assignment:
+                return clauses, model, True
+            clauses = [c for c in clauses if val not in c]
+            continue
+        
+        model[var] = assignment
+        neg_val = val[1:] if val[0]=='-' else '-'+val
+        
+        new_clauses = []
+        for clause in clauses:
+            if val in clause:
+                continue
+            updated_clause = [literal for literal in clause if literal != neg_val]
+            new_clauses.append(updated_clause)
+        
+        clauses = new_clauses
+    
+    return clauses, model, False
 
 def pure_assign_literal(clauses: list, pure_check: dict, model: dict):
     literals_to_satisfy = set()
@@ -104,6 +139,73 @@ def pure_assign_literal(clauses: list, pure_check: dict, model: dict):
                    if not any(lit in literals_to_satisfy for lit in clause)]
     
     return new_clauses
+
+def build_literal_counts(clauses):
+    pos_count = {}
+    neg_count = {}
+    
+    for clause in clauses:
+        for literal in clause:
+            var = literal.lstrip('-')
+            if literal[0] == '-':
+                neg_count[var] = neg_count.get(var, 0) + 1
+            else:
+                pos_count[var] = pos_count.get(var, 0) + 1
+    
+    return {'pos': pos_count, 'neg': neg_count}
+
+def find_pure_literals_fast(literal_counts, model):
+    pure_vars = {}
+    pos_count = literal_counts['pos']
+    neg_count = literal_counts['neg']
+    
+    all_vars = set(pos_count.keys()) | set(neg_count.keys())
+    
+    for var in all_vars:
+        if var in model:
+            continue
+        
+        pos = pos_count.get(var, 0)
+        neg = neg_count.get(var, 0)
+        
+        if pos > 0 and neg == 0:
+            pure_vars[var] = True
+        elif neg > 0 and pos == 0:
+            pure_vars[var] = False
+    
+    return pure_vars
+
+def update_literal_counts(literal_counts, pure_vars):
+    new_counts = {
+        'pos': literal_counts['pos'].copy(),
+        'neg': literal_counts['neg'].copy()
+    }
+    
+    for var in pure_vars:
+        new_counts['pos'].pop(var, None)
+        new_counts['neg'].pop(var, None)
+    
+    return new_counts
+
+def update_literal_counts_for_assignment(literal_counts, var, assignment, clauses):
+    new_counts = {
+        'pos': literal_counts['pos'].copy(),
+        'neg': literal_counts['neg'].copy()
+    }
+    
+    satisfied_literal = var if assignment else '-' + var
+    removed_literal = '-' + var if assignment else var
+    
+    for clause in clauses:
+        if satisfied_literal in clause:
+            for lit in clause:
+                v = lit.lstrip('-')
+                if lit[0] == '-':
+                    new_counts['neg'][v] = max(0, new_counts['neg'].get(v, 0) - 1)
+                else:
+                    new_counts['pos'][v] = max(0, new_counts['pos'].get(v, 0) - 1)
+    
+    return new_counts
 
 
 def get_vars(clauses):
@@ -142,4 +244,15 @@ if __name__ == "__main__":
     elapsed_unit_pure = time.time() - start_time
     print(f"\nSolve (unit prop + pure) answer: {result_unit_pure}")
     print(f"time: {elapsed_unit_pure:.6f}s")
-    
+
+    start_time = time.time()
+    result_pureplus = solve(vars_list, clauses, ['pureplus'])
+    elapsed_pureplus = time.time() - start_time
+    print(f"\nSolve (pureplus) answer: {result_pureplus}")
+    print(f"time: {elapsed_pureplus:.6f}s")
+
+    start_time = time.time()
+    result_unit_pureplus = solve(vars_list, clauses, ['unit', 'pureplus'])
+    elapsed_unit_pureplus = time.time() - start_time
+    print(f"\nSolve (unit prop + pureplus) answer: {result_unit_pureplus}")
+    print(f"time: {elapsed_unit_pureplus:.6f}s")

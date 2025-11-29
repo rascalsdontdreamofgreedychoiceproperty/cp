@@ -1,6 +1,13 @@
 import pytest
 
 
+def pytest_configure(config):
+    """Register custom markers"""
+    config.addinivalue_line("markers", "sat: Pure SAT/DPLL benchmarks")
+    config.addinivalue_line("markers", "sudoku: Sudoku benchmarks")
+    config.addinivalue_line("markers", "vertexcover: Vertex Cover benchmarks")
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--cnf-files",
