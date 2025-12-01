@@ -13,12 +13,28 @@ class WatchedClause:
     __slots__ = ['literals', 'watch1', 'watch2']
     
     def __init__(self, literals: List[str]):
+        """Initialize watched clause with two watched literals.
+        
+        Args:
+            literals: List of literals (str) in the clause
+        
+        Returns:
+            None
+        """
         self.literals = literals
         n = len(literals)
         self.watch1 = 0 if n > 0 else -1
         self.watch2 = 1 if n > 1 else -1
     
     def is_satisfied(self, model: Dict[str, bool]) -> bool:
+        """Check if clause is satisfied by current model.
+        
+        Args:
+            model: Variable assignment mapping variable names to bool
+        
+        Returns:
+            True if any literal is satisfied, False otherwise (bool)
+        """
         for lit in self.literals:
             var, pos = parse_literal(lit)
             if var in model and model[var] == pos:
@@ -26,6 +42,15 @@ class WatchedClause:
         return False
     
     def update_watch(self, watched_idx: int, model: Dict[str, bool]) -> Optional[int]:
+        """Find new literal to watch after assignment.
+        
+        Args:
+            watched_idx: Index (int) of current watched literal
+            model: Variable assignment mapping variable names to bool
+        
+        Returns:
+            Index (int) of new literal to watch, or None if no alternative found
+        """
         for i, lit in enumerate(self.literals):
             if i == self.watch1 or i == self.watch2:
                 continue
@@ -38,6 +63,14 @@ class WatchedClause:
         return None
     
     def get_unit_literal(self, model: Dict[str, bool]) -> Optional[str]:
+        """Get unit literal if clause is unit under current model.
+        
+        Args:
+            model: Variable assignment mapping variable names to bool
+        
+        Returns:
+            Unit literal (str) if exists, None otherwise
+        """
         if self.watch1 == -1:
             return None
         
@@ -62,6 +95,14 @@ class WatchedClause:
         return None
     
     def is_conflicting(self, model: Dict[str, bool]) -> bool:
+        """Check if clause conflicts with current model.
+        
+        Args:
+            model: Variable assignment mapping variable names to bool
+        
+        Returns:
+            True if both watched literals are falsified, False otherwise (bool)
+        """
         if self.watch1 == -1:
             return True
         
@@ -80,11 +121,27 @@ class WatchedClause:
 
 class WatchedFormula:
     def __init__(self, clauses: List[List[str]]):
+        """Initialize watched formula with clauses.
+        
+        Args:
+            clauses: List of clauses, each clause is a list of literals (str)
+        
+        Returns:
+            None
+        """
         self.clauses = [WatchedClause(c) for c in clauses]
         self.watch_lists = {}
         self._build_watch_lists()
     
     def save_state(self) -> Tuple[Dict[int, Tuple[int, int]], Dict[str, List[Tuple[int, int]]]]:
+        """Save current state of watched literals for backtracking.
+        
+        Args:
+            None
+        
+        Returns:
+            Tuple of (clause watch positions (Dict), watch lists (Dict))
+        """
         clause_watches = {}
         for idx, clause in enumerate(self.clauses):
             clause_watches[idx] = (clause.watch1, clause.watch2)
@@ -92,6 +149,14 @@ class WatchedFormula:
         return clause_watches, watch_lists
     
     def restore_state(self, state: Tuple[Dict[int, Tuple[int, int]], Dict[str, List[Tuple[int, int]]]]):
+        """Restore saved state of watched literals.
+        
+        Args:
+            state: Tuple of (clause watch positions (Dict), watch lists (Dict))
+        
+        Returns:
+            None
+        """
         clause_watches, watch_lists = state
         for idx, (w1, w2) in clause_watches.items():
             self.clauses[idx].watch1 = w1
@@ -99,6 +164,14 @@ class WatchedFormula:
         self.watch_lists = {k: list(v) for k, v in watch_lists.items()}
     
     def _build_watch_lists(self):
+        """Build initial watch lists for all clauses.
+        
+        Args:
+            None
+        
+        Returns:
+            None
+        """
         for idx, clause in enumerate(self.clauses):
             if clause.watch1 != -1:
                 lit = clause.literals[clause.watch1]
@@ -115,6 +188,15 @@ class WatchedFormula:
                 self.watch_lists[neg].append((idx, 2))
     
     def propagate(self, literal: str, model: Dict[str, bool]) -> Tuple[Optional[str], bool]:
+        """Propagate literal assignment through watched literals.
+        
+        Args:
+            literal: Assigned literal (str)
+            model: Variable assignment mapping variable names to bool
+        
+        Returns:
+            Tuple of (new unit literal (str or None), conflict detected (bool))
+        """
         if literal not in self.watch_lists:
             return None, False
         
@@ -158,9 +240,25 @@ class WatchedFormula:
         return unit_literal, False
     
     def is_satisfied(self, model: Dict[str, bool]) -> bool:
+        """Check if all clauses are satisfied.
+        
+        Args:
+            model: Variable assignment mapping variable names to bool
+        
+        Returns:
+            True if all clauses satisfied, False otherwise (bool)
+        """
         return all(c.is_satisfied(model) for c in self.clauses)
     
     def add_clause(self, literals: List[str]):
+        """Add a new clause to the formula.
+        
+        Args:
+            literals: List of literals (str) forming the clause
+        
+        Returns:
+            None
+        """
         clause = WatchedClause(literals)
         idx = len(self.clauses)
         self.clauses.append(clause)

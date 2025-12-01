@@ -15,6 +15,17 @@ except ImportError:
 
 
 def solve(vars: list, clauses: list, heuristics: list, model=None) -> Optional[Dict[str, bool]]:
+    """Solve SAT problem using specified heuristics.
+    
+    Args:
+        vars: List of variable names (str)
+        clauses: List of clauses, each clause is a list of literals (str)
+        heuristics: List of heuristic names (str) to apply
+        model: Optional initial variable assignment (Dict[str, bool])
+    
+    Returns:
+        Dict mapping variables to bool if satisfiable, False otherwise
+    """
     if model is None:
         model = {}
     
