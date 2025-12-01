@@ -13,7 +13,7 @@ from app.sudoku.backtracking import solve_sudoku as backtracking_solve_sudoku
 from app.vertexcover.solver import solve_vertex_cover, example_graph_2
 from app.vertexcover.backtracking import find_minimum_vertex_cover as backtracking_solve_vertex_cover
 from parser.cnf_parser import parse_dimacs_cnf
-
+from parser.sudoku_parser import parse_sudoku_csv
 
 # ============================================================================
 # HEURISTIC CONFIGURATIONS
@@ -46,21 +46,58 @@ DPLL_HEURISTICS = [
 # SUDOKU BENCHMARKS
 # ============================================================================
 
+@pytest.fixture
+def sudoku_puzzles(request):
+    """Fixture to load Sudoku puzzles from CSV"""
+    intensity = request.config.getoption("--intensity")
+    
+    # 1. Check if user provided a file via command line
+    filepath = request.config.getoption("--sudoku-file")
+    
+    # 2. If NOT provided, automatically find it in the tests/sudoku folder
+    if filepath is None:
+        # root_dir is already defined at the top of your file
+        filepath = os.path.join(root_dir, "tests", "sudoku", "small_sudoku.csv")
+    
+    # 3. Check if file exists
+    if not os.path.exists(filepath):
+        print(f"\nWarning: Dataset not found at {filepath}")
+        print("Falling back to single example board.")
+        return [example_board]
+    
+    # 4. Parse the file
+    limit = 10 if intensity == "quick" else None
+    return parse_sudoku_csv(filepath, limit=limit)
+
 @pytest.mark.sudoku
 @pytest.mark.benchmark(group="sudoku-dpll")
 @pytest.mark.parametrize("heuristics", SUDOKU_HEURISTICS, ids=lambda h: "_".join(h) if h else "none")
-def test_sudoku_dpll(benchmark, heuristics):
-    """Benchmark Sudoku with DPLL solver using various heuristic combinations"""
-    board = copy.deepcopy(example_board)
-    benchmark(solve_sudoku, board, heuristics)
+def test_sudoku_dpll(benchmark, sudoku_puzzles, heuristics):
+    """Benchmark Sudoku DPLL on the dataset"""
+    
+    # We define a function that runs ALL loaded puzzles sequentially.
+    # The benchmark will measure how long it takes to process the whole batch.
+    def run_all_sudokus():
+        for board in sudoku_puzzles:
+            # IMPORTANT: Deepcopy board because solvers modify it in-place
+            board_copy = copy.deepcopy(board)
+            solve_sudoku(board_copy, heuristics)
+
+    # rounds=1 ensures we run the whole batch once per measurement sample
+    benchmark.pedantic(run_all_sudokus, rounds=1, iterations=1)
 
 
 @pytest.mark.sudoku
 @pytest.mark.benchmark(group="sudoku-backtracking")
-def test_sudoku_backtracking(benchmark):
-    """Benchmark Sudoku with backtracking solver"""
-    board = copy.deepcopy(example_board)
-    benchmark(backtracking_solve_sudoku, board)
+def test_sudoku_backtracking(benchmark, sudoku_puzzles):
+    """Benchmark Sudoku Backtracking on the dataset"""
+    
+    def run_all_sudokus():
+        for board in sudoku_puzzles:
+            board_copy = copy.deepcopy(board)
+            backtracking_solve_sudoku(board_copy)
+
+    benchmark.pedantic(run_all_sudokus, rounds=1, iterations=1)
 
 
 
