@@ -35,10 +35,10 @@ VERTEXCOVER_HEURISTICS = [
 DPLL_HEURISTICS = [
     [],
     ["unit"],
-    ["pure"],
+    ["cdcl"],
+    ["2wl"],
     ["pure"],
     ["unit", "pure"],
-    ["unit", "pureplus"],
 ]
 
 
