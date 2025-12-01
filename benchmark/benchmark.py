@@ -23,11 +23,21 @@ from parser.sudoku_parser import parse_sudoku_csv
 SUDOKU_HEURISTICS = [
     ["unit"],
     ["unit", "pure"],
+    ["vsids"],
+    ["2wl"],
+    ["2wli"],
+    ["restarts"],
 ]
 
 # Vertex Cover heuristic combinations to benchmark
 VERTEXCOVER_HEURISTICS = [
+    [],
     ["unit"],
+    ["2wl"],
+    ["2wli"],
+    ["restarts"],
+    ["vsids"],
+    ["pure"],
     ["unit", "pure"],
 ]
 
@@ -35,8 +45,10 @@ VERTEXCOVER_HEURISTICS = [
 DPLL_HEURISTICS = [
     [],
     ["unit"],
-    ["cdcl"],
     ["2wl"],
+    ["2wli"],
+    ["restarts"],
+    ["vsids"],
     ["pure"],
     ["unit", "pure"],
 ]
@@ -83,8 +95,8 @@ def test_sudoku_dpll(benchmark, sudoku_puzzles, heuristics):
             board_copy = copy.deepcopy(board)
             solve_sudoku(board_copy, heuristics)
 
-    # rounds=1 ensures we run the whole batch once per measurement sample
-    benchmark.pedantic(run_all_sudokus, rounds=1, iterations=1)
+    # Increase rounds for more accurate measurements
+    benchmark.pedantic(run_all_sudokus, rounds=5, iterations=1)
 
 
 @pytest.mark.sudoku

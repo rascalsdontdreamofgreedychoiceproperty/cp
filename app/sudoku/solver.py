@@ -67,7 +67,7 @@ def solve_sudoku(board, heuristics_list):
     vars_list = get_vars(clauses)
     model = solve(vars_list, clauses, heuristics_list)
     
-    if model is False:
+    if not model or model is False:
         return False
     
     for r in range(9):

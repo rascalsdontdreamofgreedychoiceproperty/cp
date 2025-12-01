@@ -1,7 +1,16 @@
+import sys
+from pathlib import Path
 from typing import List, Dict, Optional
-from .helpers import parse_literal, simplify_clauses
-from .heuristics import unit_propagate, eliminate_pure_literals
-from .watched_literals import WatchedFormula
+
+try:
+    from .helpers import parse_literal, simplify_clauses
+    from .heuristics import unit_propagate, eliminate_pure_literals, VSIDSScorer
+    from .watched_literals import WatchedFormula
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).parent))
+    from helpers import parse_literal, simplify_clauses
+    from heuristics import unit_propagate, eliminate_pure_literals, VSIDSScorer
+    from watched_literals import WatchedFormula
 
 
 def solve_naive(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]) -> Optional[Dict[str, bool]]:
@@ -15,14 +24,13 @@ def solve_naive(vars: List[str], clauses: List[List[str]], model: Dict[str, bool
         return None
     
     var = remaining[0]
-    rest_vars = remaining[1:]
     
     pos_literal = var
     new_clauses = simplify_clauses(clauses, pos_literal)
     new_model = model.copy()
     new_model[var] = True
     
-    result = solve_naive(rest_vars, new_clauses, new_model)
+    result = solve_naive(vars, new_clauses, new_model)
     if result is not None:
         return result
     
@@ -31,7 +39,7 @@ def solve_naive(vars: List[str], clauses: List[List[str]], model: Dict[str, bool
     new_model = model.copy()
     new_model[var] = False
     
-    return solve_naive(rest_vars, new_clauses, new_model)
+    return solve_naive(vars, new_clauses, new_model)
 
 
 def solve_unit(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]) -> Optional[Dict[str, bool]]:
@@ -49,14 +57,13 @@ def solve_unit(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]
         return None
     
     var = remaining[0]
-    rest_vars = remaining[1:]
     
     pos_literal = var
     new_clauses = simplify_clauses(clauses, pos_literal)
     new_model = model.copy()
     new_model[var] = True
     
-    result = solve_unit(rest_vars, new_clauses, new_model)
+    result = solve_unit(vars, new_clauses, new_model)
     if result is not None:
         return result
     
@@ -65,12 +72,15 @@ def solve_unit(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]
     new_model = model.copy()
     new_model[var] = False
     
-    return solve_unit(rest_vars, new_clauses, new_model)
+    return solve_unit(vars, new_clauses, new_model)
 
 
 def solve_pure(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]) -> Optional[Dict[str, bool]]:
     clauses, model = eliminate_pure_literals(clauses, model)
-    
+    return _solve_pure_helper(vars, clauses, model)
+
+
+def _solve_pure_helper(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]) -> Optional[Dict[str, bool]]:
     if not clauses:
         return model
     if [] in clauses:
@@ -81,14 +91,13 @@ def solve_pure(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]
         return None
     
     var = remaining[0]
-    rest_vars = remaining[1:]
     
     pos_literal = var
     new_clauses = simplify_clauses(clauses, pos_literal)
     new_model = model.copy()
     new_model[var] = True
     
-    result = solve_pure(rest_vars, new_clauses, new_model)
+    result = _solve_pure_helper(vars, new_clauses, new_model)
     if result is not None:
         return result
     
@@ -97,7 +106,7 @@ def solve_pure(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]
     new_model = model.copy()
     new_model[var] = False
     
-    return solve_pure(rest_vars, new_clauses, new_model)
+    return _solve_pure_helper(vars, new_clauses, new_model)
 
 
 def solve_unit_pure(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]) -> Optional[Dict[str, bool]]:
@@ -107,6 +116,14 @@ def solve_unit_pure(vars: List[str], clauses: List[List[str]], model: Dict[str, 
     
     clauses, model = eliminate_pure_literals(clauses, model)
     
+    return _solve_unit_pure_helper(vars, clauses, model)
+
+
+def _solve_unit_pure_helper(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]) -> Optional[Dict[str, bool]]:
+    clauses, model, conflict = unit_propagate(clauses, model)
+    if conflict:
+        return None
+    
     if not clauses:
         return model
     if [] in clauses:
@@ -117,14 +134,13 @@ def solve_unit_pure(vars: List[str], clauses: List[List[str]], model: Dict[str, 
         return None
     
     var = remaining[0]
-    rest_vars = remaining[1:]
     
     pos_literal = var
     new_clauses = simplify_clauses(clauses, pos_literal)
     new_model = model.copy()
     new_model[var] = True
     
-    result = solve_unit_pure(rest_vars, new_clauses, new_model)
+    result = _solve_unit_pure_helper(vars, new_clauses, new_model)
     if result is not None:
         return result
     
@@ -133,7 +149,7 @@ def solve_unit_pure(vars: List[str], clauses: List[List[str]], model: Dict[str, 
     new_model = model.copy()
     new_model[var] = False
     
-    return solve_unit_pure(rest_vars, new_clauses, new_model)
+    return _solve_unit_pure_helper(vars, new_clauses, new_model)
 
 
 def solve_2wl(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]) -> Optional[Dict[str, bool]]:
@@ -172,7 +188,7 @@ def solve_2wl_recursive(vars: List[str], formula: WatchedFormula, model: Dict[st
             return None
         
         if new_unit:
-            pass 
+            pass
 
     if formula.is_satisfied(model):
         return model
@@ -186,17 +202,21 @@ def solve_2wl_recursive(vars: List[str], formula: WatchedFormula, model: Dict[st
     
     var = remaining[0]
     
+    saved_state = formula.save_state()
     model[var] = True
     if solve_2wl_recursive(vars, formula, model) is not None:
         return model
     
     del model[var]
+    formula.restore_state(saved_state)
     
+    saved_state = formula.save_state()
     model[var] = False
     if solve_2wl_recursive(vars, formula, model) is not None:
         return model
     
     del model[var]
+    formula.restore_state(saved_state)
     
     _backtrack(model, assigned_in_this_step)
     return None
@@ -242,8 +262,9 @@ def _bcp(formula: WatchedFormula, model: Dict[str, bool], trail: List[str]) -> b
             return False
 
 
-def solve_iterative(vars: List[str], clauses: List[List[str]], model: Dict[str, bool]) -> Optional[Dict[str, bool]]:
+def solve_iterative(vars: List[str], clauses: List[List[str]], model: Dict[str, bool], scorer: Optional[VSIDSScorer] = None, conflict_limit: int = 0) -> Optional[Dict[str, bool]]:
     formula = WatchedFormula(clauses)
+    conflicts = 0
 
     trail = []
     decision_stack = []
@@ -255,16 +276,20 @@ def solve_iterative(vars: List[str], clauses: List[List[str]], model: Dict[str, 
         if formula.is_satisfied(model):
             return model
 
-        var = _pick_branching_variable(vars, model)
+        if scorer:
+            var = scorer.pick_variable(model)
+        else:
+            var = _pick_branching_variable(vars, model)
 
         if var is None:
             if all(c.is_satisfied(model) for c in formula.clauses):
                 return model
             conflict = True
         else:
+            saved_state = formula.save_state()
             model[var] = True
             trail.append(var)
-            decision_stack.append([var, False])
+            decision_stack.append([var, False, saved_state])
             conflict = False
 
         if not conflict:
@@ -272,10 +297,18 @@ def solve_iterative(vars: List[str], clauses: List[List[str]], model: Dict[str, 
                 conflict = True
 
         while conflict:
+            conflicts += 1
+            if conflict_limit > 0 and conflicts >= conflict_limit:
+                return "restart"
+
             if not decision_stack:
                 return None
 
-            last_var, tried_flipped = decision_stack[-1]
+            last_var, tried_flipped, saved_state = decision_stack[-1]
+
+            if scorer:
+                scorer.bump(last_var)
+                scorer.decay()
 
             while trail:
                 u_var = trail.pop()
@@ -283,11 +316,14 @@ def solve_iterative(vars: List[str], clauses: List[List[str]], model: Dict[str, 
                     del model[u_var]
                 if u_var == last_var:
                     break
+            
+            formula.restore_state(saved_state)
 
             if not tried_flipped:
+                saved_state = formula.save_state()
                 model[last_var] = False
                 trail.append(last_var)
-                decision_stack[-1][1] = True
+                decision_stack[-1] = [last_var, True, saved_state]
 
                 if _bcp(formula, model, trail):
                     conflict = False
@@ -296,3 +332,16 @@ def solve_iterative(vars: List[str], clauses: List[List[str]], model: Dict[str, 
             else:
                 decision_stack.pop()
                 conflict = True
+
+
+def solve_with_restarts(vars: List[str], clauses: List[List[str]], model: Dict[str, bool], scorer: Optional[VSIDSScorer] = None) -> Optional[Dict[str, bool]]:
+    conflict_limit = 100
+    max_restarts = 1000
+    
+    for _ in range(max_restarts):
+        result = solve_iterative(vars, clauses, {}, scorer, conflict_limit)
+        if result != "restart":
+            return result
+        conflict_limit = int(conflict_limit * 1.5)
+    
+    return solve_iterative(vars, clauses, {}, scorer, 0)

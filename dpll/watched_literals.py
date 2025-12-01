@@ -1,5 +1,12 @@
+import sys
+from pathlib import Path
 from typing import List, Dict, Optional, Tuple
-from .helpers import parse_literal, negate_literal
+
+try:
+    from .helpers import parse_literal, negate_literal
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).parent))
+    from helpers import parse_literal, negate_literal
 
 
 class WatchedClause:
@@ -77,6 +84,20 @@ class WatchedFormula:
         self.watch_lists = {}
         self._build_watch_lists()
     
+    def save_state(self) -> Tuple[Dict[int, Tuple[int, int]], Dict[str, List[Tuple[int, int]]]]:
+        clause_watches = {}
+        for idx, clause in enumerate(self.clauses):
+            clause_watches[idx] = (clause.watch1, clause.watch2)
+        watch_lists = {k: list(v) for k, v in self.watch_lists.items()}
+        return clause_watches, watch_lists
+    
+    def restore_state(self, state: Tuple[Dict[int, Tuple[int, int]], Dict[str, List[Tuple[int, int]]]]):
+        clause_watches, watch_lists = state
+        for idx, (w1, w2) in clause_watches.items():
+            self.clauses[idx].watch1 = w1
+            self.clauses[idx].watch2 = w2
+        self.watch_lists = {k: list(v) for k, v in watch_lists.items()}
+    
     def _build_watch_lists(self):
         for idx, clause in enumerate(self.clauses):
             if clause.watch1 != -1:
@@ -138,3 +159,22 @@ class WatchedFormula:
     
     def is_satisfied(self, model: Dict[str, bool]) -> bool:
         return all(c.is_satisfied(model) for c in self.clauses)
+    
+    def add_clause(self, literals: List[str]):
+        clause = WatchedClause(literals)
+        idx = len(self.clauses)
+        self.clauses.append(clause)
+        
+        if clause.watch1 != -1:
+            lit = clause.literals[clause.watch1]
+            neg = negate_literal(lit)
+            if neg not in self.watch_lists:
+                self.watch_lists[neg] = []
+            self.watch_lists[neg].append((idx, 1))
+        
+        if clause.watch2 != -1:
+            lit = clause.literals[clause.watch2]
+            neg = negate_literal(lit)
+            if neg not in self.watch_lists:
+                self.watch_lists[neg] = []
+            self.watch_lists[neg].append((idx, 2))
