@@ -62,6 +62,11 @@ def parse_dimacs_clq(filename):
             parts = line.split()
             # add edge to adjlist
             # NOTE the dataset is 1-indexed, while solver is 0-indexed
-            graph[int(parts[1]) - 1].append(int(parts[2]) - 1)
+            # NOTE the dataset is directed, so make it undirected
+            if (int(parts[2]) - 1) not in graph[int(parts[1]) - 1]:
+                graph[int(parts[1]) - 1].append(int(parts[2]) - 1)
+
+            if (int(parts[1]) - 1) not in graph[int(parts[2]) - 1]:
+                graph[int(parts[2]) - 1].append(int(parts[1]) - 1)
 
     return graph
