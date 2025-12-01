@@ -47,7 +47,6 @@ def parse_dimacs_clq(filename):
                 e = int(parts[3])
                 # initialize the adjacency list
                 graph = [[] for _ in range(v)]
-                print(len(graph))
 
                 found_problem_line = True
                 continue

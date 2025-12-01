@@ -2,6 +2,7 @@ import sys
 import os
 import copy
 import pytest
+import pdb
 
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if root_dir not in sys.path:
@@ -143,18 +144,20 @@ def test_vertexcover_dpll(benchmark, clq_files, heuristics):
     graphs = [parse_dimacs_clq(filepath) for filepath in clq_files]
     def run_all_mvcs():
         for graph in graphs:
-            solve_vertex_cover(graph, None, heuristics)
+            g = copy.deepcopy(graph)
+            solve_vertex_cover(g, None, heuristics)
 
     benchmark.pedantic(run_all_mvcs, rounds=1, iterations=1)
 
 @pytest.mark.vertexcover
 @pytest.mark.benchmark(group="vertexcover-backtracking")
-def test_vertexcover_backtracking(benchmark):
+def test_vertexcover_backtracking(benchmark, clq_files):
     """Benchmark Vertex Cover with backtracking solver"""
     graphs = [parse_dimacs_clq(filepath) for filepath in clq_files]
     def run_all_mvcs():
         for graph in graphs:
-            solve_vertex_cover(graph, None, heuristics)
+            g = copy.deepcopy(graph)
+            backtracking_solve_vertex_cover(g)
 
     benchmark.pedantic(run_all_mvcs, rounds=1, iterations=1)
 
