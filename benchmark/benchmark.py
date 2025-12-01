@@ -10,10 +10,11 @@ if root_dir not in sys.path:
 from dpll.solver import solve, get_vars
 from app.sudoku.solver import solve_sudoku, example_board
 from app.sudoku.backtracking import solve_sudoku as backtracking_solve_sudoku
-from app.vertexcover.solver import solve_vertex_cover, example_graph_2
+from app.vertexcover.solver import solve_vertex_cover
 from app.vertexcover.backtracking import find_minimum_vertex_cover as backtracking_solve_vertex_cover
 from parser.cnf_parser import parse_dimacs_cnf
 from parser.sudoku_parser import parse_sudoku_csv
+from parser.clq_parser import parse_dimacs_clq
 
 # ============================================================================
 # HEURISTIC CONFIGURATIONS
@@ -117,21 +118,45 @@ def test_sudoku_backtracking(benchmark, sudoku_puzzles):
 # VERTEX COVER BENCHMARKS
 # ============================================================================
 
+def get_clq_files(config):
+    mode = config.getoption("--intensity")
+    dimacs_mvc_dir = os.path.join(root_dir, "tests", "dimacs_mvc")
+
+    all_files = sorted([os.path.join(dimacs_mvc_dir, f) for f in os.listdir(dimacs_mvc_dir) if f.endswith(".clq")])
+
+    if mode == "quick":
+        # we don't have enough datasets for this
+        return all_files
+    else:
+        return all_files
+
+@pytest.fixture
+def clq_files(request):
+    """Fixture that provides list of CLQ files based on benchmark mode"""
+    return get_clq_files(request.config)
+
 @pytest.mark.vertexcover
 @pytest.mark.benchmark(group="vertexcover-dpll")
 @pytest.mark.parametrize("heuristics", VERTEXCOVER_HEURISTICS, ids=lambda h: "_".join(h) if h else "none")
-def test_vertexcover_dpll(benchmark, heuristics):
+def test_vertexcover_dpll(benchmark, clq_files, heuristics):
     """Benchmark Vertex Cover with DPLL solver using various heuristic combinations"""
-    graph = copy.deepcopy(example_graph_2)
-    benchmark(solve_vertex_cover, graph, None, heuristics)
+    graphs = [parse_dimacs_clq(filepath) for filepath in clq_files]
+    def run_all_mvcs():
+        for graph in graphs:
+            solve_vertex_cover(graph, None, heuristics)
 
+    benchmark.pedantic(run_all_mvcs, rounds=1, iterations=1)
 
 @pytest.mark.vertexcover
 @pytest.mark.benchmark(group="vertexcover-backtracking")
 def test_vertexcover_backtracking(benchmark):
     """Benchmark Vertex Cover with backtracking solver"""
-    graph = copy.deepcopy(example_graph_2)
-    benchmark(backtracking_solve_vertex_cover, graph)
+    graphs = [parse_dimacs_clq(filepath) for filepath in clq_files]
+    def run_all_mvcs():
+        for graph in graphs:
+            solve_vertex_cover(graph, None, heuristics)
+
+    benchmark.pedantic(run_all_mvcs, rounds=1, iterations=1)
 
 
 
