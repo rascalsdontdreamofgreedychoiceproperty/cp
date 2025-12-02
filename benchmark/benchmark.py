@@ -13,9 +13,13 @@ from app.sudoku.solver import solve_sudoku, example_board
 from app.sudoku.backtracking import solve_sudoku as backtracking_solve_sudoku
 from app.vertexcover.solver import solve_vertex_cover
 from app.vertexcover.backtracking import find_minimum_vertex_cover as backtracking_solve_vertex_cover
+from app.battleship.solver import solve_battleship
+from app.battleship.backtracking import solve_battleship as backtracking_solve_battleship
+from app.battleship.backtracking import UNKNOWN, WATER, SHIP
 from parser.cnf_parser import parse_dimacs_cnf
 from parser.sudoku_parser import parse_sudoku_csv
 from parser.clq_parser import parse_dimacs_clq
+from parser.battleship_parser import parse_battleship_csv
 
 # ============================================================================
 # HEURISTIC CONFIGURATIONS
@@ -23,6 +27,16 @@ from parser.clq_parser import parse_dimacs_clq
 
 # Sudoku heuristic combinations to benchmark
 SUDOKU_HEURISTICS = [
+    ["unit"],
+    ["unit", "pure"],
+    ["vsids"],
+    ["2wl"],
+    ["2wli"],
+    ["restarts"],
+]
+
+# Battleship heuristic combinations to benchmark
+BATTLESHIP_HEURISTICS = [
     ["unit"],
     ["unit", "pure"],
     ["vsids"],
@@ -113,6 +127,83 @@ def test_sudoku_backtracking(benchmark, sudoku_puzzles):
 
     benchmark.pedantic(run_all_sudokus, rounds=1, iterations=1)
 
+
+# ============================================================================
+# BATTLESHIP BENCHMARKS
+# ============================================================================
+
+@pytest.fixture
+def battleship_puzzles(request):
+    """Fixture to load Battleship puzzles from CSV"""
+    intensity = request.config.getoption("--intensity")
+    
+    # 1. Check if user provided a file via command line (assuming standard naming convention)
+    # Note: If --battleship-file isn't in conftest.py, this might return None, 
+    # so we fallback to the default path logic below.
+    try:
+        filepath = request.config.getoption("--battleship-file")
+    except ValueError:
+        filepath = None
+    
+    # 2. If NOT provided, automatically find it in the tests/battleship folder or root
+    if filepath is None:
+        # Check standard location
+        filepath = os.path.join(root_dir, "tests", "battleship", "battleship.csv")
+        # Fallback to root or uploaded location if needed
+        if not os.path.exists(filepath):
+             filepath = os.path.join(root_dir, "battleship.csv")
+    
+    # 3. Check if file exists
+    if not os.path.exists(filepath):
+        print(f"\nWarning: Battleship dataset not found at {filepath}")
+        return []
+    
+    # 4. Parse the file
+    limit = 10 if intensity == "quick" else None
+    raw_puzzles = parse_battleship_csv(filepath, limit=limit)
+    
+    # 5. Convert raw characters to solver constants (UNKNOWN, WATER, SHIP)
+    processed_puzzles = []
+    for (grid_chars, fleet) in raw_puzzles:
+        board = []
+        for row in grid_chars:
+            converted_row = []
+            for char in row:
+                if char == '.':
+                    converted_row.append(WATER)
+                elif char == 'X':
+                    converted_row.append(SHIP)
+                else:
+                    converted_row.append(UNKNOWN)
+            board.append(converted_row)
+        processed_puzzles.append((board, fleet))
+        
+    return processed_puzzles
+
+@pytest.mark.battleship
+@pytest.mark.benchmark(group="battleship-dpll")
+@pytest.mark.parametrize("heuristics", BATTLESHIP_HEURISTICS, ids=lambda h: "_".join(h) if h else "none")
+def test_battleship_dpll(benchmark, battleship_puzzles, heuristics):
+    """Benchmark Battleship DPLL on the dataset"""
+    
+    def run_all_battleships():
+        for board, fleet in battleship_puzzles:
+            board_copy = copy.deepcopy(board)
+            solve_battleship(board_copy, fleet, heuristics)
+
+    benchmark.pedantic(run_all_battleships, rounds=5, iterations=1)
+
+@pytest.mark.battleship
+@pytest.mark.benchmark(group="battleship-backtracking")
+def test_battleship_backtracking(benchmark, battleship_puzzles):
+    """Benchmark Battleship Backtracking on the dataset"""
+    
+    def run_all_battleships():
+        for board, fleet in battleship_puzzles:
+            board_copy = copy.deepcopy(board)
+            backtracking_solve_battleship(board_copy, fleet)
+
+    benchmark.pedantic(run_all_battleships, rounds=1, iterations=1)
 
 
 # ============================================================================

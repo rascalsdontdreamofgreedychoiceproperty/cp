@@ -6,6 +6,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "sat: Pure SAT/DPLL benchmarks")
     config.addinivalue_line("markers", "sudoku: Sudoku benchmarks")
     config.addinivalue_line("markers", "vertexcover: Vertex Cover benchmarks")
+    config.addinivalue_line("markers", "battleship: Battleship benchmarks")
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -22,6 +23,12 @@ def pytest_addoption(parser):
         help="Path to the Sudoku CSV dataset"
     )
     # -------------------------
+    parser.addoption(
+        "--battleship-file",
+        action="store",
+        default=None, 
+        help="Path to the Battleship CSV dataset"
+    )
     parser.addoption(
         "--intensity",
         action="store",
