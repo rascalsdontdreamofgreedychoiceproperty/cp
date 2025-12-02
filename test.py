@@ -17,6 +17,6 @@ from parser.cnf_parser import parse_dimacs_cnf
 from parser.sudoku_parser import parse_sudoku_csv
 from parser.clq_parser import parse_dimacs_clq
 
-breakpoint()
-graph = parse_dimacs_clq("tests/dimacs_mvc/basic.clq")
+#breakpoint()
+graph = parse_dimacs_clq("tests/dimacs_mvc/johnson8-2-4.clq")
 print(backtracking_solve_vertex_cover(graph))
